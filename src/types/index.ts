@@ -4,7 +4,7 @@ export interface ICard {
     image: string;
     description: string;
     category: string;
-    price: number;
+    price: number | null;
 }
 
 export interface IUser {
