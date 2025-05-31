@@ -20,6 +20,8 @@ export class Api {
     }
 
     protected handleResponse(response: Response): Promise<object> {
+        	console.log('📬 Ответ от сервера:', response.status);
+
         if (response.ok) return response.json();
         else return response.json()
             .then(data => Promise.reject(data.error ?? response.statusText));
@@ -33,10 +35,16 @@ export class Api {
     }
 
     post(uri: string, data: object, method: ApiPostMethods = 'POST') {
+        	console.log(` Отправка на ${this.baseUrl + uri}`, data);
+
         return fetch(this.baseUrl + uri, {
             ...this.options,
             method,
             body: JSON.stringify(data)
-        }).then(this.handleResponse);
+        }).then(this.handleResponse)
+        .catch(err => {
+		console.error(' Ошибка запроса:', err);
+		throw err;
+	});
     }
 }

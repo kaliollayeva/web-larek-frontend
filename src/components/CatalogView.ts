@@ -1,14 +1,17 @@
+import { Component } from '../components/base/Component';
 
-export class CatalogView {
-    private container: HTMLElement;
+interface ICatalogView {
+    catalog: HTMLElement[];
+}
 
-    constructor(container: HTMLElement){
-        this.container = container;
+export class CatalogView extends Component<ICatalogView> implements ICatalogView {
+    protected _catalog: HTMLElement;
+
+    constructor(protected container: HTMLElement) {
+        super(container)
     }
 
-    renderCatalog(cardElements: HTMLElement[]): void{
-        cardElements.forEach((card) => {
-            this.container.appendChild(card);
-        })
+    set catalog(items: HTMLElement[]) {
+        this.container.replaceChildren(...items);
     }
 }

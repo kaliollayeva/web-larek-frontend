@@ -22,6 +22,7 @@
       background: $main;
     }
   }
+
 }
 
 @mixin link($main: white, $hover: $secondary) {
@@ -66,4 +67,6 @@
     //box-shadow: inset 0 0 0 0 $color;
     background-color: unset;
   }
+
+  
 }
