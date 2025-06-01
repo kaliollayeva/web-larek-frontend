@@ -13,6 +13,7 @@ import { BasketModel } from './components/BasketModel';
 import { BasketView } from './components/BasketView';
 import { OrderFormView } from './components/OrderFormView';
 import { SuccessView } from './components/SuccessView';
+import { HeaderView } from './components/HeaderView';
 
 // 1. Основные зависимости
 const api = new Api(API_URL);
@@ -40,11 +41,6 @@ const contactsTemplate = document.querySelector(
 const orderTemplate = document.querySelector('#order') as HTMLTemplateElement;
 const basketTemplate = document.querySelector('#basket') as HTMLTemplateElement;
 
-const basketButton = document.querySelector('.header__basket');
-const basketCounter = document.querySelector(
-	'.header__basket-counter'
-) as HTMLElement;
-
 const catalogView = new CatalogView(gallery);
 const modalContainer = document.querySelector('.modal') as HTMLElement;
 const modalView = new ModalView(modalContainer, events);
@@ -56,6 +52,10 @@ const orderAddressView = new OrderFormView(
 );
 const сontactsView = new OrderFormView(cloneTemplate(contactsTemplate), events);
 const successView = new SuccessView(cloneTemplate(successTemplate), events);
+const headerContainer = document.querySelector('.header') as HTMLElement;
+const headerView = new HeaderView(headerContainer, events);
+
+const catalogCardInstances: CardView[] = [];
 
 events.onAll((event) => {
 	console.log(event.eventName, event.data);
@@ -66,34 +66,13 @@ api
 	.then((data: ApiListResponse<ICard>) => {
 		console.log('Ответ от API:', data);
 		cardsData.cards = data.items;
-		events.emit('initialData:loaded');
+		catalogRendering();
 	})
 	.catch((err) => {
 		console.error(err);
 	});
 
-basketButton.addEventListener('click', () => {
-	events.emit('basket:opened');
-});
-
-function renderBasketView(): HTMLElement {
-	const items = basketModel.items;
-	const total = basketModel.total;
-
-	const renderedBasketCards = items.map((item, index) => {
-		const basketCard = new CardView(
-			cloneTemplate(cardBasketTemplate),
-			events,
-			'basket'
-		);
-		return basketCard.render(item, true, index);
-	});
-
-	return basketView.render(renderedBasketCards, total);
-}
-
-const catalogCardInstances: CardView[] = [];
-events.on('initialData:loaded', () => {
+function catalogRendering() {
 	const cardsArray = cardsData.getCards();
 	console.log('Карточки после загрузки:', cardsArray);
 
@@ -111,9 +90,27 @@ events.on('initialData:loaded', () => {
 		return cardElement;
 	});
 	catalogView.catalog = renderedCards;
-});
+}
 
-events.on('fullCard:opened', ({ cardData }: { cardData: ICard }) => {
+function renderBasketView(): HTMLElement {
+	const items = basketModel.items;
+	const total = basketModel.total;
+
+	const renderedBasketCards = items.map((item, index) => {
+		const basketCard = new CardView(
+			cloneTemplate(cardBasketTemplate),
+			events,
+			'basket'
+		);
+		return basketCard.render(item, true, index);
+	});
+
+	return basketView.render(renderedBasketCards, total);
+}
+
+events.on('fullCard:opened', ({ id }: { id: string }) => {
+	const cardData = cardsData.getCard(id); //нахожу карту по айди
+
 	const fullCardView = new CardView(
 		cloneTemplate(cardPreviewTemplate),
 		events,
@@ -124,13 +121,33 @@ events.on('fullCard:opened', ({ cardData }: { cardData: ICard }) => {
 	modalView.open(rendredCard);
 });
 
+events.on('basket:add', ({ id }: { id: string }) => {
+	const card = cardsData.getCard(id);
+	basketModel.addItem(card);
+});
+
+events.on('basket:remove', ({ id }: { id: string }) => {
+	basketModel.removeItem({ id });
+});
+
 let openedBasket: HTMLElement;
+
+function buildOrderData(userData: UserData, basketModel: BasketModel) {
+	const filteredItems = basketModel.items
+		.filter((item) => item.price !== 0 && item.price !== null)
+		.map((item) => item.id);
+
+	return {
+		...userData.summary,
+		total: basketModel.total,
+		items: filteredItems,
+	};
+}
 
 events.on<{ items: ICardBasketInfo[]; total: number }>(
 	'basket:changed',
 	({ items, total }) => {
-		userData.setBasket(total, items);
-		basketCounter.textContent = `${items.length}`;
+		headerView.updateBasketCount(items.length);
 
 		catalogCardInstances.forEach((card) => {
 			const isInBasket = items.some((item) => item.id === card.getId());
@@ -144,15 +161,29 @@ events.on<{ items: ICardBasketInfo[]; total: number }>(
 events.on('basket:opened', () => {
 	openedBasket = renderBasketView();
 	modalView.open(openedBasket);
-		console.log(basketModel.items);
-
+	console.log(basketModel.items);
 });
+
+events.on(
+	'userData:validateOrderStep',
+	({ address, payment }: { address: string; payment: string }) => {
+		const result = userData.validateOrderStep(address, payment);
+		events.emit('orderStep:validated', result);
+	}
+);
+
+events.on(
+	'userData:validateContacts',
+	({ email, phone }: { email: string; phone: string }) => {
+		const result = userData.validateContacts(email, phone);
+		events.emit('contacts:validated', result);
+	}
+);
 
 events.on('basket:checkout', () => {
 	const renderedorderAddressView = orderAddressView.render();
 
 	modalView.open(renderedorderAddressView);
-	
 });
 
 events.on(
@@ -168,21 +199,25 @@ events.on(
 	}
 );
 
-events.on('userData:step2', ({ email, phone }: { email: string; phone: string }) => {
-	userData.setContacts(email, phone);
-	const orderPayload = userData.summary;
+events.on(
+	'userData:step2',
+	({ email, phone }: { email: string; phone: string }) => {
+		userData.setContacts(email, phone);
+		const orderPayload = buildOrderData(userData, basketModel);
 
-	api.post('/order', orderPayload, 'POST')
-		.then((response) => {
-			console.log('Заказ успешно отправлен:', response);
-			basketModel.clear();
-			const renderedSuccessView = successView.render(orderPayload.total);
-			modalView.open(renderedSuccessView);
-		})
-		.catch((error) => {
-			console.error('Ошибка при отправке заказа:', error);
-		});
-});
+		api
+			.post('/order', orderPayload, 'POST')
+			.then((response) => {
+				console.log('Заказ успешно отправлен:', response);
+				basketModel.clear();
+				const renderedSuccessView = successView.render(orderPayload.total);
+				modalView.open(renderedSuccessView);
+			})
+			.catch((error) => {
+				console.error('Ошибка при отправке заказа:', error);
+			});
+	}
+);
 
 events.on('modalSuccess:close', () => {
 	userData.clear();
@@ -195,4 +230,4 @@ events.on('modalSuccess:close', () => {
 events.on('modal:closed', () => {
 	orderAddressView.resetForm();
 	сontactsView.resetForm();
-})
+});

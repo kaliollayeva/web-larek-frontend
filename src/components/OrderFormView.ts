@@ -1,11 +1,11 @@
 import { IEvents } from './base/events';
 
 interface IOrderFormView {
-  render(): HTMLElement | null;
-  resetForm(): void;
+	render(): HTMLElement | null;
+	resetForm(): void;
 }
 
-export class OrderFormView implements IOrderFormView{
+export class OrderFormView implements IOrderFormView {
 	protected container: HTMLElement | null;
 	protected orderButton: HTMLButtonElement | null;
 	protected payButton: HTMLButtonElement | null;
@@ -48,18 +48,38 @@ export class OrderFormView implements IOrderFormView{
 						this.payment =
 							target.getAttribute('name') === 'card' ? 'online' : 'cash';
 						this.setActiveButton(target);
-						this.validateOrderStep();
+						this.events.emit('userData:validateOrderStep', {
+							address: this.addressInput?.value || '',
+							payment: this.payment,
+						});
 					});
 				}
 			});
 
 			if (this.addressInput) {
 				this.addressInput.addEventListener('input', () =>
-					this.validateOrderStep()
+					this.events.emit('userData:validateOrderStep', {
+						address: this.addressInput?.value || '',
+						payment: this.payment,
+					})
 				);
 			}
 
-			this.validateOrderStep();
+			this.events.on(
+				'orderStep:validated',
+				({ isValid, errors }: { isValid: boolean; errors: string[] }) => {
+					if (this.orderButton) {
+						this.orderButton.disabled = !isValid;
+					}
+
+					const errorElement = this.orderButton
+						?.closest('form')
+						?.querySelector<HTMLSpanElement>('.form__errors');
+					if (errorElement) {
+						errorElement.textContent = isValid ? '' : errors.join(' ');
+					}
+				}
+			);
 		}
 
 		if (this.payButton) {
@@ -75,16 +95,35 @@ export class OrderFormView implements IOrderFormView{
 
 			if (this.emailInput) {
 				this.emailInput.addEventListener('input', () =>
-					this.validateContactsStep()
+					this.events.emit('userData:validateContacts', {
+						email: this.emailInput?.value || '',
+						phone: this.phoneInput?.value || '',
+					})
 				);
 			}
 			if (this.phoneInput) {
 				this.phoneInput.addEventListener('input', () =>
-					this.validateContactsStep()
+					this.events.emit('userData:validateContacts', {
+						email: this.emailInput?.value || '',
+						phone: this.phoneInput?.value || '',
+					})
 				);
 			}
 
-			this.validateContactsStep();
+			this.events.on(
+				'contacts:validated',
+				({ isValid, errors }: { isValid: boolean; errors: string[] }) => {
+					if (this.payButton) {
+						this.payButton.disabled = !isValid;
+					}
+					const errorElement = this.payButton
+						?.closest('form')
+						?.querySelector<HTMLSpanElement>('.form__errors');
+					if (errorElement) {
+						errorElement.textContent = isValid ? '' : errors.join(' ');
+					}
+				}
+			);
 		}
 	}
 
@@ -98,61 +137,6 @@ export class OrderFormView implements IOrderFormView{
 		activeBtn.classList.add('button_alt-active');
 	}
 
-	private validateOrderStep() {
-		const addressValue = this.addressInput?.value || '';
-		const isAddressValid = addressValue.trim().length > 0;
-		const isPaymentValid = !!this.payment;
-		const isValid = isAddressValid && isPaymentValid;
-
-		if (this.orderButton) {
-			this.orderButton.disabled = !isValid;
-		}
-
-		const errorElement = this.orderButton.closest('form')?.querySelector<HTMLSpanElement>('.form__errors');
-
-		if (errorElement) {
-			if (!isValid) {
-				if (!isAddressValid && !isPaymentValid) {
-					errorElement.textContent = 'Введите адрес и выберите способ оплаты.';
-				} else if (!isAddressValid) {
-					errorElement.textContent = 'Введите адрес доставки.';
-				} else if (!isPaymentValid) {
-					errorElement.textContent = 'Выберите способ оплаты.';
-				}
-			} else {
-				errorElement.textContent = '';
-			}
-		}
-	}
-
-	private validateContactsStep() {
-		const emailValue = this.emailInput?.value || '';
-		const phoneValue = this.phoneInput?.value || '';
-		const emailValid = /\S+@\S+\.\S+/.test(emailValue);
-		const phoneValid = phoneValue.replace(/\D/g, '').length >= 10;
-		const isValid = emailValid && phoneValid;
-
-		if (this.payButton) {
-			this.payButton.disabled = !isValid;
-		}
-
-		const errorElement = this.payButton.closest('form')?.querySelector<HTMLSpanElement>('.form__errors');
-
-		if (errorElement) {
-			if (!isValid) {
-				if (!emailValid && !phoneValid) {
-					errorElement.textContent = 'Введите корректный Email и телефон.';
-				} else if (!emailValid) {
-					errorElement.textContent = 'Введите корректный Email.';
-				} else if (!phoneValid) {
-					errorElement.textContent = 'Введите корректный номер телефона.';
-				}
-			} else {
-				errorElement.textContent = '';
-			}
-		}
-	}
-
 	resetForm() {
 		if (this.addressInput) this.addressInput.value = '';
 		if (this.emailInput) this.emailInput.value = '';
@@ -163,8 +147,16 @@ export class OrderFormView implements IOrderFormView{
 			btn?.classList.remove('button_alt-active');
 		});
 
-		if (this.orderButton) this.validateOrderStep();
-		if (this.payButton) this.validateContactsStep();
+		if (this.orderButton)
+			this.events.emit('userData:validateOrderStep', {
+				address: this.addressInput?.value || '',
+				payment: this.payment || '',
+			});
+		if (this.payButton)
+			this.events.emit('userData:validateContacts', {
+				email: this.emailInput?.value || '',
+				phone: this.phoneInput?.value || '',
+			});
 	}
 
 	render() {

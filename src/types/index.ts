@@ -12,8 +12,6 @@ export interface IUser {
     email: string;
     phone: string; 
     address: string;   
-    total: number;
-    items: string[];
 }
 
 // Данные карточки, используемые в каталоге

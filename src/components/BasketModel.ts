@@ -17,9 +17,6 @@ export class BasketModel implements IBasketModel {
 
 	constructor(events: IEvents) {
 		this.events = events;
-
-		this.events.on('basket:add', this.addItem.bind(this));
-		this.events.on('basket:remove', this.removeItem.bind(this));
 	}
 
 	get items(): ICardBasketInfo[] {

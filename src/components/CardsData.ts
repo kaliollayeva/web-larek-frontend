@@ -25,6 +25,10 @@ export class CardsData implements ICardsData{
 		return this._cards;
 	}
 
+	getCard(id: string): ICard {
+		return this._cards.find((card) => card.id === id);
+	}
+
 	selectCard(id: string): void {
 		this._preview = id;
 		this.events.emit('card:selected', { id });

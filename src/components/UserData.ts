@@ -1,21 +1,20 @@
 import { ICardBasketInfo } from '../types/index';
 
+interface ValidationResult {
+	isValid: boolean;
+	errors: string[];
+}
+
 export interface IUserData {
 	setAddress(address: string): void;
 	setPayment(method: string): void;
 	setContacts(email: string, phone: string): void;
-	setBasket(total: number, items: ICardBasketInfo[]): void;
-
-	readonly totalNum: number;
-	readonly itemsId: string[];
 
 	readonly summary: {
 		address: string;
 		payment: string;
 		email: string;
 		phone: string;
-		total: number;
-		items: string[];
 	};
 
 	clear(): void;
@@ -26,8 +25,6 @@ export class UserData implements IUserData {
 	protected email: string = '';
 	protected phone: string = '';
 	protected address: string = '';
-	protected total: number = 0;
-	protected items: string[] = [];
 
 	setAddress(address: string) {
 		this.address = address;
@@ -42,29 +39,12 @@ export class UserData implements IUserData {
 		this.phone = phone.replace(/\s+/g, '');
 	}
 
-	setBasket(total: number, items: ICardBasketInfo[]) {
-		this.total = total;
-		this.items = items
-			.filter((item) => item.price !== 0 && item.price !== null)
-			.map((item) => item.id);
-	}
-
-	get totalNum() {
-		return this.total;
-	}
-
-	get itemsId() {
-		return this.items;
-	}
-
 	get summary() {
 		return {
 			address: this.address,
 			payment: this.payment,
 			email: this.email,
 			phone: this.phone,
-			total: this.total,
-			items: this.items,
 		};
 	}
 
@@ -73,7 +53,35 @@ export class UserData implements IUserData {
 		this.email = '';
 		this.phone = '';
 		this.address = '';
-		this.total = 0;
-		this.items = [];
+	}
+
+	validateOrderStep(address: string, payment: string): ValidationResult {
+		const isAddressValid = address.trim().length > 0;
+		const isPaymentValid = !!payment;
+
+		const errors = [];
+		if (!isAddressValid) errors.push('Введите адрес доставки.');
+		if (!isPaymentValid) errors.push('Выберите способ оплаты.');
+
+		return {
+			isValid: isAddressValid && isPaymentValid,
+			errors,
+		};
+	}
+
+	validateContacts(email: string, phone: string): ValidationResult {
+		const errors: string[] = [];
+
+		if (!/\S+@\S+\.\S+/.test(email)) {
+			errors.push('Введите корректный Email.');
+		}
+		if (phone.replace(/\D/g, '').length < 10) {
+			errors.push('Введите корректный номер телефона.');
+		}
+
+		return {
+			isValid: errors.length === 0,
+			errors,
+		};
 	}
 }

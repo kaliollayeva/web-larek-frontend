@@ -23,9 +23,8 @@ export class CardView extends Component<ICard> implements ICardView {
 	protected category: HTMLElement;
 	protected price: HTMLElement;
 	protected galleryButton?: HTMLButtonElement;
-	protected deleteButton?: HTMLButtonElement; //добавила
-	protected _cardData?: Partial<ICard>;
-	protected addToBasketButton?: HTMLButtonElement; //добавила
+	protected deleteButton?: HTMLButtonElement; 
+	protected addToBasketButton?: HTMLButtonElement; 
 	protected inBasket = false;
 	protected indexElement?: HTMLElement;
 
@@ -50,7 +49,7 @@ export class CardView extends Component<ICard> implements ICardView {
 			this.galleryButton = (this.container as HTMLButtonElement) || undefined;
 			if (this.galleryButton) {
 				this.galleryButton.addEventListener('click', () =>
-					this.events.emit('fullCard:opened', { cardData: this._cardData })
+					this.events.emit('fullCard:opened', { id: this.cardId })
 				);
 			}
 
@@ -61,11 +60,7 @@ export class CardView extends Component<ICard> implements ICardView {
 					if (this.inBasket) {
 						this.events.emit('basket:remove', { id: this.cardId });
 					} else {
-						this.events.emit('basket:add', {
-							id: this.cardId,
-							title: this._cardData?.title ?? '',
-							price: this._cardData?.price ?? 0,
-						});
+						this.events.emit('basket:add', { id: this.cardId });
 					}
 				});
 			}
@@ -100,8 +95,6 @@ export class CardView extends Component<ICard> implements ICardView {
 	) {
 		if (!cardData) return this.container;
 		
-		this._cardData = cardData;
-
 		if (
 			this.mode === 'basket' &&
 			typeof index === 'number' &&
